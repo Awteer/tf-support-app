@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import {
   doc,
+  collection,
   onSnapshot,
   setDoc,
+  deleteDoc,
+  getDocs,
+  writeBatch,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db, getTodaySessionId } from '../firebase'
@@ -16,51 +20,68 @@ export function useSessionMeta() {
   useEffect(() => {
     const unsub = onSnapshot(metaRef, (snap) => {
       if (snap.exists()) {
-        setMeta(snap.data())
+        const data = snap.data()
+        // currentRunNumberが欠落している場合は1にフォールバック
+        setMeta({
+          currentRunNumber: Number(data.currentRunNumber) || 1,
+          currentTest: data.currentTest ?? null,
+        })
       }
-      // ドキュメントが存在しない場合はデフォルト値のまま待機
-      // （初回書き込み時に自動生成される）
     })
     return unsub
   }, [sessionId])
 
   // 走行番号をインクリメント（ドキュメントがなければ新規作成）
   async function incrementRun() {
-    await setDoc(
-      metaRef,
-      { currentRunNumber: meta.currentRunNumber + 1 },
-      { merge: true }
-    )
+    const next = (Number(meta.currentRunNumber) || 1) + 1
+    await setDoc(metaRef, { currentRunNumber: next }, { merge: true })
   }
 
   // 試験種別を送信（追走車・操作者）
   async function sendTest(testType, params) {
-    // serverTimestamp()は1つの書き込みに1インスタンス必要なため分けて生成
+    const runNumber = Number(meta.currentRunNumber) || 1
     const base = {
       testType,
       propellerRpm: params.propellerRpm ?? '',
       aircraftSpeed: params.aircraftSpeed ?? '',
       notes: params.notes ?? '',
-      runNumber: meta.currentRunNumber,
+      runNumber,
     }
-
-    // メタデータ更新（merge:true でrunNumberを保持しつつcurrentTestを更新）
     await setDoc(
       metaRef,
-      { currentTest: { ...base, sentAt: serverTimestamp() } },
+      {
+        currentRunNumber: runNumber,
+        currentTest: { ...base, sentAt: serverTimestamp() },
+      },
       { merge: true }
     )
-
-    // 履歴に追記（serverTimestamp()を別途生成）
-    const histRef = doc(
-      db,
-      'sessions',
-      sessionId,
-      'testHistory',
-      `${Date.now()}`
-    )
+    const histRef = doc(db, 'sessions', sessionId, 'testHistory', `${Date.now()}`)
     await setDoc(histRef, { ...base, sentAt: serverTimestamp() })
   }
 
-  return { meta, incrementRun, sendTest }
+  // 全データリセット（走行ログ・試験履歴・メタ情報・メッセージ）
+  async function resetAll() {
+    const batch = writeBatch(db)
+
+    // windLogs を全削除
+    const windSnap = await getDocs(collection(db, 'sessions', sessionId, 'windLogs'))
+    windSnap.docs.forEach((d) => batch.delete(d.ref))
+
+    // testHistory を全削除
+    const histSnap = await getDocs(collection(db, 'sessions', sessionId, 'testHistory'))
+    histSnap.docs.forEach((d) => batch.delete(d.ref))
+
+    // meta/main をリセット
+    batch.set(doc(db, 'sessions', sessionId, 'meta', 'main'), {
+      currentRunNumber: 1,
+      currentTest: null,
+    })
+
+    // メッセージをクリア
+    batch.delete(doc(db, 'sessions', sessionId, 'meta', 'message'))
+
+    await batch.commit()
+  }
+
+  return { meta, incrementRun, sendTest, resetAll }
 }

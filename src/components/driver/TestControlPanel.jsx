@@ -5,12 +5,17 @@ import { TEST_TYPES } from '../../hooks/useTestParams'
 export function TestControlPanel({ params, currentRun, onSend, currentTest }) {
   const [selected, setSelected] = useState(TEST_TYPES[0])
   const [sending, setSending] = useState(false)
+  const [error, setError] = useState(null)
 
   async function handleSend() {
     if (!selected) return
     setSending(true)
+    setError(null)
     try {
-      await onSend(selected, params[selected])
+      await onSend(selected, params[selected] ?? {})
+    } catch (e) {
+      // エラー内容を画面に表示してデバッグできるようにする
+      setError(e.message ?? String(e))
     } finally {
       setSending(false)
     }
@@ -54,6 +59,13 @@ export function TestControlPanel({ params, currentRun, onSend, currentTest }) {
               {params[selected].notes}
             </p>
           )}
+        </div>
+      )}
+
+      {/* エラー表示 */}
+      {error && (
+        <div className="bg-red-900/50 border border-red-600 rounded-lg p-3 text-xs text-red-300 break-all">
+          <span className="font-bold">エラー：</span>{error}
         </div>
       )}
 

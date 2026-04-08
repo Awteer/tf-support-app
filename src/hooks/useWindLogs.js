@@ -33,10 +33,13 @@ export function useWindLogs() {
     })
   }
 
-  // 各地点の最新値を返す
-  function getLatestByLocation() {
+  // 指定走行番号の各地点最新値を返す（省略時は全走行の最新値）
+  function getLatestByLocation(runNumber) {
+    const filtered = runNumber != null
+      ? logs.filter((l) => l.runNumber === runNumber)
+      : logs
     const map = {}
-    for (const log of logs) {
+    for (const log of filtered) {
       map[log.location] = log
     }
     return map

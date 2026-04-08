@@ -12,7 +12,8 @@ const firebaseConfig = {
 }
 
 const app = initializeApp(firebaseConfig)
-export const db = getFirestore(app)
+// データベースIDが 'default'（括弧なし）のため明示的に指定
+export const db = getFirestore(app, 'default')
 
 // 本日の日付をセッションIDとして使用（日次リセット）
 export function getTodaySessionId() {

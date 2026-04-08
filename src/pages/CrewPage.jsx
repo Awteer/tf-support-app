@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useSessionMeta } from '../hooks/useSessionMeta'
 import { useWindLogs } from '../hooks/useWindLogs'
+import { useMessage } from '../hooks/useMessage'
 import { WindDataInput } from '../components/crew/WindDataInput'
 import { TestDisplay } from '../components/crew/TestDisplay'
+import { MessageDisplay } from '../components/crew/MessageDisplay'
 import { WindLogTable } from '../components/common/WindLogTable'
 
 const TABS = ['試験内容', '風データ入力', '風況ログ']
@@ -14,6 +16,7 @@ export function CrewPage() {
   )
   const { meta } = useSessionMeta()
   const { logs, addWindLog } = useWindLogs()
+  const { latestMessage } = useMessage()
 
   // 通知許可リクエスト
   async function requestNotification() {
@@ -23,10 +26,7 @@ export function CrewPage() {
   }
 
   useEffect(() => {
-    // ページ読み込み時に通知許可を確認
-    if ('Notification' in window) {
-      setNotifPerm(Notification.permission)
-    }
+    if ('Notification' in window) setNotifPerm(Notification.permission)
   }, [])
 
   return (
@@ -46,7 +46,7 @@ export function CrewPage() {
       {/* 通知許可バナー */}
       {notifPerm === 'default' && (
         <div className="bg-blue-900/60 border-b border-blue-700 px-4 py-2 flex items-center justify-between gap-2">
-          <p className="text-xs text-blue-200">試験指示の通知を受け取りますか？</p>
+          <p className="text-xs text-blue-200">試験指示・メッセージの通知を受け取りますか？</p>
           <button
             onClick={requestNotification}
             className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-md"
@@ -76,7 +76,10 @@ export function CrewPage() {
       <main className="p-4 space-y-4 max-w-xl mx-auto">
         {/* 試験内容 */}
         {tab === '試験内容' && (
-          <TestDisplay currentTest={meta.currentTest} />
+          <>
+            <TestDisplay currentTest={meta.currentTest} />
+            <MessageDisplay message={latestMessage} />
+          </>
         )}
 
         {/* 風データ入力 */}

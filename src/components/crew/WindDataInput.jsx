@@ -1,6 +1,5 @@
 import { useState } from 'react'
-
-const LOCATIONS = ['50m', '100m', '150m', '200m', '250m', '300m']
+import { LOCATIONS } from '../../constants'
 
 const DIRECTIONS_8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
 const DIRECTIONS_16 = [
@@ -10,18 +9,25 @@ const DIRECTIONS_16 = [
 
 // 風データ入力フォーム（風見係専用）
 export function WindDataInput({ currentRun, onSubmit }) {
-  const [location, setLocation] = useState(LOCATIONS[0])
-  const [windSpeed, setWindSpeed] = useState('')
+  const [locationText, setLocationText] = useState('50')  // 数値文字列（単位:m）
+  const [windSpeed, setWindSpeed]     = useState('')
   const [windDirection, setWindDirection] = useState('N')
-  const [use16, setUse16] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
+  const [use16, setUse16]             = useState(false)
+  const [submitting, setSubmitting]   = useState(false)
+  const [submitted, setSubmitted]     = useState(false)
 
   const directions = use16 ? DIRECTIONS_16 : DIRECTIONS_8
 
+  // クイック選択ボタン → テキスト欄を更新
+  function handleQuickSelect(loc) {
+    setLocationText(loc.replace('m', ''))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!windSpeed || isNaN(Number(windSpeed))) return
+    const num = Number(locationText)
+    if (!windSpeed || isNaN(Number(windSpeed)) || !locationText || isNaN(num) || num <= 0) return
+    const location = `${num}m`
     setSubmitting(true)
     await onSubmit({ runNumber: currentRun, location, windSpeed, windDirection })
     setSubmitting(false)
@@ -35,24 +41,41 @@ export function WindDataInput({ currentRun, onSubmit }) {
       <h2 className="text-sm font-semibold text-gray-300">風データ入力</h2>
       <p className="text-xs text-gray-500">走行 #{currentRun} に記録されます</p>
 
-      {/* 観測地点 */}
+      {/* 観測地点：クイック選択 ＋ 自由入力 */}
       <div>
         <label className="text-xs text-gray-400 block mb-2">観測地点</label>
-        <div className="grid grid-cols-3 gap-2">
-          {LOCATIONS.map((loc) => (
-            <button
-              key={loc}
-              type="button"
-              onClick={() => setLocation(loc)}
-              className={`py-2 rounded-lg text-sm font-medium transition-all border ${
-                location === loc
-                  ? 'bg-blue-600 border-blue-500 text-white'
-                  : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              {loc}
-            </button>
-          ))}
+        {/* クイック選択ボタン */}
+        <div className="grid grid-cols-3 gap-1.5 mb-2">
+          {LOCATIONS.map((loc) => {
+            const val = loc.replace('m', '')
+            return (
+              <button
+                key={loc}
+                type="button"
+                onClick={() => handleQuickSelect(loc)}
+                className={`py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  locationText === val
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                {loc}
+              </button>
+            )
+          })}
+        </div>
+        {/* 自由数値入力 */}
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={locationText}
+            onChange={(e) => setLocationText(e.target.value)}
+            placeholder="任意の距離"
+            className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white text-center focus:outline-none focus:border-blue-500"
+          />
+          <span className="text-sm text-gray-400 font-medium">m</span>
         </div>
       </div>
 
@@ -85,7 +108,7 @@ export function WindDataInput({ currentRun, onSubmit }) {
             16方位
           </label>
         </div>
-        <div className={`grid gap-1.5 ${use16 ? 'grid-cols-4' : 'grid-cols-4'}`}>
+        <div className="grid grid-cols-4 gap-1.5">
           {directions.map((dir) => (
             <button
               key={dir}
@@ -106,7 +129,7 @@ export function WindDataInput({ currentRun, onSubmit }) {
       {/* 送信ボタン */}
       <button
         type="submit"
-        disabled={submitting || !windSpeed}
+        disabled={submitting || !windSpeed || !locationText}
         className={`w-full py-3.5 rounded-xl font-bold text-lg transition-all active:scale-95 ${
           submitted
             ? 'bg-green-700 text-green-200'
